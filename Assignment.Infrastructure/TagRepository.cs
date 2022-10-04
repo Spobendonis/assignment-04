@@ -58,7 +58,7 @@ public class TagRepository : ITagRepository
         var tag = from t in _context.Tags
                     where t.Id == tagId
                     select new TagDTO(t.Id, t.Name);
-        return (TagDTO) tag;
+        return tag.FirstOrDefault();
     }
 
     public IReadOnlyCollection<TagDTO> Read()

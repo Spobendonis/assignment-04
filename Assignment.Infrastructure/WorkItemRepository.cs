@@ -22,20 +22,21 @@ public class WorkItemRepository : IWorkItemRepository
             Tags = CreateOrUpdateTags(item.Tags).ToHashSet()
             
         };
-
-        var created = new WorkItemDetailsDTO(entity.Id, entity.Title, entity.Description, DateTime.UtcNow,
-         entity.AssignedTo?.Name, entity.Tags.Select(t =>t.Name).ToHashSet(), State.New, DateTime.UtcNow);
-
         _context.Items.Add(entity);
         _context.SaveChanges();
+
+        var created = new WorkItemDetailsDTO(entity.Id, entity.Title, entity.Description, DateTime.UtcNow,
+         entity.AssignedTo?.Name, entity.Tags.Select(t =>t.Name).ToList<string>().AsReadOnly(), State.New, DateTime.UtcNow);
+
+        
 
         return (Created, created.Id);
     }
 
     public Response Delete(int itemId)
     {
-        var WorkItem = _context.Items.Include(t => t.Id).FirstOrDefault(t => t.Id == itemId);
-        Response response;
+        var WorkItem = _context.Items.Find(itemId);
+        Response response = NotFound;
 
         if (itemId is 0)
         {
@@ -44,7 +45,6 @@ public class WorkItemRepository : IWorkItemRepository
         else if(WorkItem?.State == State.New)
         {
             _context.Items.Remove(WorkItem);
-            _context.SaveChanges();
             response = Deleted;
         }
         else if(WorkItem?.State == State.Active)
@@ -56,17 +56,18 @@ public class WorkItemRepository : IWorkItemRepository
             response = Conflict;
         }
 
-        response = NotFound;
+        _context.SaveChanges();
+
         return response;
     }
 
     public WorkItemDetailsDTO? Find(int itemId)
     {
 
-        
         var items = from i in _context.Items
+                            let tags = i.Tags.Select(t =>t.Name).ToList<string>().AsReadOnly()
                             where i.Id == itemId
-                            select new WorkItemDetailsDTO(i.Id, i.Title, i.Description, DateTime.UtcNow, i.AssignedTo == null ? null : i.AssignedTo.Name, i.Tags.Select(t =>t.Name).ToHashSet(), i.State,DateTime.UtcNow);
+                            select new WorkItemDetailsDTO(i.Id, i.Title, i.Description, DateTime.UtcNow, i.AssignedTo == null ? null : i.AssignedTo.Name, tags, i.State,DateTime.UtcNow);
 
         return items.FirstOrDefault();
     }
@@ -80,9 +81,7 @@ public class WorkItemRepository : IWorkItemRepository
         return items.ToArray();
     }
 
-    // public record WorkItemDTO(int Id, string Title, string AssignedToName, IReadOnlyCollection<string> Tags, State State);
-
-
+    
     public IReadOnlyCollection<WorkItemDTO> ReadByState(State state)
     {
         var workItems = from i in _context.Items
@@ -129,21 +128,33 @@ public class WorkItemRepository : IWorkItemRepository
             return NotFound;
         }
 
+        if (entity.State != item.State){
+
+            //Change Time?
+
+        }
+
+        if (entity.AssignedToId != item.AssignedToId){
+        var users = from u in _context.Users
+            where u.Id == item.AssignedToId
+            select u;
+
+        if(!users.Any())
+        {
+            return Response.BadRequest;
+        }
+        }
+
         entity.Id = item.Id;
         entity.Title = item.Title;
         entity.AssignedToId = item.AssignedToId;
         entity.Description = item.Description;
         entity.Tags = CreateOrUpdateTags(item.Tags).ToHashSet();
-
-        //entity.Tags = item.Tags.Select(i =>i.Name).ToList<string>().AsReadOnly();
         entity.State = item.State;
 
         _context.SaveChanges();
 
-        return Updated;
-
-// public record WorkItemUpdateDTO(int Id, [StringLength(100)]string Title, int? AssignedToId, string? Description, ICollection<string> Tags, State State);
-
+        return Response.Updated;
 
     }
 

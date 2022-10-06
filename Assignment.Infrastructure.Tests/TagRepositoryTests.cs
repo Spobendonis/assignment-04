@@ -92,4 +92,26 @@ public class TagRepositoryTests
 
         response.Should().Be(Conflict);
     }
+
+    [Fact]
+    public void RemoveWithoutForceGivesConflict() {
+        UserRepository URepo = new UserRepository(_context);
+        WorkItemRepository WIRepo = new WorkItemRepository(_context);
+        var (Uresponse, Uentity) = URepo.Create(new UserCreateDTO("jim", "jim@gmail.com"));
+        var (WIresponse, WIentity) = WIRepo.Create(new WorkItemCreateDTO("title", 1, "a test item", new List<string>{"Custom"}));
+        var response = _repository.Delete(1);
+
+        response.Should().Be(Conflict);
+    }
+
+    [Fact]
+    public void RemoveWithForceGivesDeleted() {
+        UserRepository URepo = new UserRepository(_context);
+        WorkItemRepository WIRepo = new WorkItemRepository(_context);
+        var (Uresponse, Uentity) = URepo.Create(new UserCreateDTO("jim", "jim@gmail.com"));
+        var (WIresponse, WIentity) = WIRepo.Create(new WorkItemCreateDTO("title", 1, "a test item", new List<string>{"Custom"}));
+        var response = _repository.Delete(1, true);
+
+        response.Should().Be(Deleted);
+    }
 }
